@@ -1,0 +1,1 @@
+program wykrywający wybrany rodzaj obiektów na zdjęciu

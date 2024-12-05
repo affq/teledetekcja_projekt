@@ -6,6 +6,8 @@ import shapely
 import numpy as np
 import geopandas as gpd
 import matplotlib.pyplot as plt
+from rasterio.features import shapes
+import geopandas as gpd
 
 def show_grayscale_matplotlib(array: np.ndarray):  
     plt.imshow(array, cmap='gray')
@@ -45,3 +47,9 @@ def point_to_pixel(x, y, geotransform):
     column = (x - c) / a
     row = (y - f) / e
     return row, column  # ij convention to stay with NumPy
+
+def segment_image_with_mask(image: np.ndarray, include_mask:np.ndarray):
+    shapes_from_image = shapes(image, include_mask)
+    shapes_from_image = [{'properties': {'raster_val': v}, 'geometry':s} for s,v in shapes_from_image]
+    shapes_from_image =gpd.GeoDataFrame.from_features(shapes_from_image)
+    return shapes_from_image

@@ -1,7 +1,12 @@
-import arcpy
+#import arcpy
 import matplotlib.pyplot as plt
 import numpy as np
-from funcs import read_spatial_raster
+#import rasterio
+from funcs import read_spatial_raster, segment_image_with_mask
+
+
+
+
 
 raster_file = r"grupa_4.tif"
 raster_dataset = read_spatial_raster(raster_file)
@@ -47,7 +52,22 @@ red_array = np.float32(red_array)
 rededge_array = np.float32(rededge_array)
 nir_array =np.float32(nir_array)
 
-# wyszukanie obszarów z drzewami
-red_array[(red_array > 300)] = 0
-plt.imshow(red_array, cmap='RdYlGn')
+#wyszukanie obszarów z drzewami
+# red_array[(red_array > 300)] = 0
+# red_array[np.isnan(red_array)] = 0
+# plt.imshow(red_array, cmap='RdYlGn')
+# plt.show()
+
+
+forest_mask = red_array < 300
+forest_mask = np.uint8(forest_mask)
+
+detected_forests =  segment_image_with_mask(forest_mask, forest_mask)
+print(f"number of detected forests: {len(detected_forests)}")
+
+big_forests = detected_forests[detected_forests["geometry"].area > 1000].copy()
+big_forests["id"] = np.int64(big_forests.index)
+print(f"number of detected forests with area > 1000: {len(big_forests)}")
+big_forests.plot(column="id",color="red")
+plt.savefig("big_forests.png")
 plt.show()

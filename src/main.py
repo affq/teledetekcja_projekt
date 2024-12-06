@@ -24,7 +24,8 @@ nir = get_band(raster_dataset, 8)
 # plt.imshow(red_array, cmap='RdYlGn')
 # plt.show()
 
-forest_mask = red < 300
+forest_mask = (red < 300) & (red > 0)
+forest_mask = np.flipud(forest_mask)
 forest_mask = np.uint8(forest_mask)
 
 detected_forests =  segment_image_with_mask(forest_mask, forest_mask)
@@ -36,3 +37,6 @@ print(f"number of detected forests with area > 1000: {len(big_forests)}")
 big_forests.plot(column="id",color="red")
 plt.savefig("big_forests.png")
 plt.show()
+
+big_forests.set_crs(epsg=32634, inplace=True)
+big_forests.to_file("big_forests.shp", driver="ESRI Shapefile") #ląduje w afryce

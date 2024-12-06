@@ -53,3 +53,10 @@ def segment_image_with_mask(image: np.ndarray, include_mask:np.ndarray):
     shapes_from_image = [{'properties': {'raster_val': v}, 'geometry':s} for s,v in shapes_from_image]
     shapes_from_image =gpd.GeoDataFrame.from_features(shapes_from_image)
     return shapes_from_image
+
+def get_band(raster_dataset, band_number: int):
+    band = raster_dataset.GetRasterBand(band_number)
+    band_array = band.ReadAsArray()
+    band_array = np.copy(band_array)
+    band_array = np.float32(band_array)
+    return band_array

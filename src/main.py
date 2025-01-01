@@ -1,16 +1,17 @@
-#import arcpy
-import matplotlib.pyplot as plt
 import numpy as np
-#import rasterio
-from funcs import read_spatial_raster, segment_image_with_mask, get_band, reproject_geodataframe, convert_to_pixel_system
+from funcs import pixel_to_geo, read_spatial_raster, get_band, segment_image_with_mask
 import geopandas as gpd
 from shapely.geometry import Polygon
-
-
+from osgeo import osr
+from shapely.ops import transform
 
 raster_file = r"grupa_4.tif"
 raster_dataset = read_spatial_raster(raster_file)
 raster_projection=raster_dataset.GetProjection()
+geo_transform = raster_dataset.GetGeoTransform()
+raster_origin = (geo_transform[0], geo_transform[3])  # Top-left
+pixel_width = geo_transform[1]
+pixel_height = abs(geo_transform[5])  
 #print(raster_projection)
 
 coastal_blue = get_band(raster_dataset, 1)
@@ -22,31 +23,37 @@ red = get_band(raster_dataset, 6)
 rededge = get_band(raster_dataset, 7)
 nir = get_band(raster_dataset, 8)
 
-forest_mask = (red < 300) & (red > 0)   #lasy przyjmuja wartosci od 0 do 300
-forest_mask = np.uint8(forest_mask)
+forest_mask = (red < 300) & (red > 0)   # lasy przyjmują wartości od 0 do 300
+forest_mask = np.uint8(forest_mask) 
 
 detected_forests =  segment_image_with_mask(forest_mask, forest_mask)
-#print(f"number of detected forests: {len(detected_forests)}")
+detected_forests["id"] = np.int64(detected_forests.index)
 
-big_forests = detected_forests[detected_forests["geometry"].area > 1000].copy()
-big_forests["id"] = np.int64(big_forests.index)
+#wybranie obszarów o powierzchni większej niż 1000 m2 - Zgodnie z art. 3. u.o.l. lasem nazywamy grunt: 
+#o zwartej powierzchni co najmniej 0,10 ha, pokryty roślinnością leśną (uprawami leśnymi) 
+geometries = geometries = [row["geometry"] for _, row in detected_forests.iterrows()]
+geo_geometries = [transform(lambda x, y: pixel_to_geo(geo_transform, x, y), geom) for geom in geometries]
+forest_gdf = gpd.GeoDataFrame({'geometry': geo_geometries})
+spatial_ref = osr.SpatialReference()
+spatial_ref.ImportFromWkt(raster_projection)
+forest_gdf.crs = spatial_ref.ExportToProj4()
+forest_gdf["area"] = forest_gdf["geometry"].area
+forest_gdf = forest_gdf[forest_gdf["area"] > 1000].copy()
+forest_gdf.to_file("shp/detected_forests.shp", driver="ESRI Shapefile")
 
 holes = []
-for idx, row in big_forests.iterrows():
+for idx, row in forest_gdf.iterrows():
     geometry = row["geometry"]
     for hole in geometry.interiors:
-        holes.append({"id": row["id"], "geometry": Polygon(hole)})
-
+        polygon_hole = Polygon(hole)
+        area = Polygon(hole).area
+        holes.append({"geometry": polygon_hole, "area": area})
+        
+          
 holes_gdf = gpd.GeoDataFrame(holes)
-holes_gdf["area"] = holes_gdf["geometry"].area
-# print(f"number of holes: {len(holes_gdf)}")
-holes_gdf = holes_gdf[holes_gdf["area"] > 100].copy()
-#print(f"number of holes with area > 100: {len(holes_gdf)}")
-
-holes_gdf.crs = raster_projection
-holes_features = convert_to_pixel_system(holes_gdf, raster_dataset.GetGeoTransform())
-holes_features.to_file("forest_holes.shp", driver="ESRI Shapefile")
-
-
-
+spatial_ref = osr.SpatialReference()
+spatial_ref.ImportFromWkt(raster_projection)
+holes_gdf.crs = spatial_ref.ExportToProj4()
+holes_gdf = holes_gdf[holes_gdf["area"] > 100].copy() #wybranie dziur o powierzchni większej niż 100 m2
+holes_gdf.to_file("shp/forest_holes.shp", driver="ESRI Shapefile")
 

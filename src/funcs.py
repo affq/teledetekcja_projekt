@@ -60,3 +60,28 @@ def get_band(raster_dataset, band_number: int):
     band_array = np.copy(band_array)
     band_array = np.float32(band_array)
     return band_array
+
+def pixel_to_geo(transform, x, y):
+    """
+    Convert pixel coordinates to geographic coordinates.
+    
+    Parameters:
+    - transform: GeoTransform of the raster (tuple)
+    - x: Pixel column (int)
+    - y: Pixel row (int)
+    
+    Returns:
+    - (geoX, geoY): Geographic coordinates
+    """
+    geoX = transform[0] + x * transform[1] + y * transform[2]
+    geoY = transform[3] + x * transform[4] + y * transform[5]
+    return geoX, geoY
+
+def reproject_geometry(geometry, transform):
+    """
+    Reproject a geometry from pixel to geographic coordinates.
+    """
+    def pixel_to_geo_transform(x, y):
+        return pixel_to_geo(transform, x, y)
+
+    return transform(geometry, pixel_to_geo_transform)
